@@ -1,72 +1,322 @@
+import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 export default function HomePage() {
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[var(--bg)] text-[var(--ink)]">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.45]"
-        style={{
-          backgroundImage:
-            "linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-24 top-10 h-[420px] w-[420px] rounded-full bg-[var(--accent-tint)] blur-3xl"
-      />
+    <main className="bg-[var(--bg)] text-[var(--ink)]">
+      {/* Hero — one composition */}
+      <section className="relative min-h-dvh overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-40"
+          style={{
+            backgroundImage:
+              "linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+            maskImage:
+              "radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 75%)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[55vh] bg-[radial-gradient(ellipse_at_70%_20%,var(--accent-tint),transparent_55%)]"
+        />
 
-      <div className="relative mx-auto flex min-h-dvh max-w-5xl flex-col justify-center px-6 py-16">
-        <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">
-          ArchitectAI
-        </p>
-        <h1 className="max-w-3xl font-[family-name:var(--font-display)] text-5xl leading-[1.05] tracking-tight sm:text-6xl">
-          Ask once. Get the full architecture on a whiteboard.
-        </h1>
-        <p className="mt-5 max-w-xl text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-          Describe any project. ArchitectAI draws system diagrams, flows, and
-          chaptered build steps — then you edit the board like Excalidraw.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
+        <div className="relative mx-auto flex min-h-dvh max-w-6xl flex-col justify-center gap-12 px-6 py-20 lg:flex-row lg:items-center lg:gap-16">
+          <div className="max-w-xl shrink-0">
+            <div className="mb-6 flex items-center gap-3">
+              <Image
+                src="/ArchitectAI.png"
+                alt=""
+                width={48}
+                height={48}
+                className="rounded-md"
+                priority
+              />
+              <p className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">
+                ArchitectAI
+              </p>
+            </div>
+            <h1 className="font-[family-name:var(--font-display)] text-4xl leading-[1.08] tracking-tight sm:text-5xl">
+              Turn a project idea into an editable architecture board.
+            </h1>
+            <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--muted)] sm:text-lg">
+              Describe what you want to build. ArchitectAI draws the system,
+              flows, and build steps on a whiteboard you can keep editing.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <Link
+                href="/board"
+                className="rounded-md bg-[var(--ink)] px-5 py-2.5 text-sm font-medium text-[var(--panel)] transition-transform hover:scale-[1.02]"
+              >
+                Open whiteboard
+              </Link>
+              <a
+                href="#what-it-does"
+                className="text-sm text-[var(--muted)] underline-offset-4 hover:text-[var(--ink)] hover:underline"
+              >
+                How it works
+              </a>
+            </div>
+          </div>
+
+          <div
+            className="w-full max-w-lg border border-[var(--line)] bg-[var(--panel)] p-4 shadow-none lg:ml-auto"
+            aria-hidden
+          >
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+              Example board
+            </p>
+            <div className="space-y-3">
+              <BoardFrame title="System architecture">
+                <Flow
+                  nodes={["Client", "Next.js", "API", "Postgres"]}
+                />
+              </BoardFrame>
+              <BoardFrame title="Auth flow">
+                <Flow nodes={["Sign in", "Clerk", "Session", "Protected route"]} />
+              </BoardFrame>
+              <BoardFrame title="Chapter 1 · Setup">
+                <p className="font-mono text-[11px] text-[var(--muted)]">
+                  npx create-next-app · env · first deploy
+                </p>
+              </BoardFrame>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* What it does */}
+      <section
+        id="what-it-does"
+        className="border-t border-[var(--line)] px-6 py-20"
+      >
+        <div className="mx-auto max-w-3xl">
+          <h2 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">
+            What it does
+          </h2>
+          <p className="mt-4 text-base leading-relaxed text-[var(--muted)] sm:text-lg">
+            ArchitectAI is a chat-driven whiteboard for software architecture.
+            You write a plain request — stack preferences, constraints, product
+            goal — and it returns a structured blueprint, then renders that
+            blueprint as diagram frames on an Excalidraw canvas.
+          </p>
+          <ul className="mt-8 space-y-4 text-base leading-relaxed text-[var(--ink)]">
+            <li className="border-l-2 border-[var(--accent)] pl-4">
+              <span className="font-semibold">System diagrams</span>
+              <span className="text-[var(--muted)]">
+                {" "}
+                — services, data stores, auth, and how requests move between
+                them.
+              </span>
+            </li>
+            <li className="border-l-2 border-[var(--accent)] pl-4">
+              <span className="font-semibold">Flow and sequence views</span>
+              <span className="text-[var(--muted)]">
+                {" "}
+                — upload pipelines, job runners, webhook paths, UI → API → DB.
+              </span>
+            </li>
+            <li className="border-l-2 border-[var(--accent)] pl-4">
+              <span className="font-semibold">Build chapters</span>
+              <span className="text-[var(--muted)]">
+                {" "}
+                — ordered steps with concrete commands next to the matching
+                diagram.
+              </span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      {/* How it helps */}
+      <section className="border-t border-[var(--line)] bg-[var(--panel)] px-6 py-20">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">
+            How it helps
+          </h2>
+          <div className="mt-8 space-y-8">
+            <HelpBlock
+              title="Start from a drawable plan, not a blank canvas"
+              body="Instead of opening Excalidraw and inventing boxes from memory, you get a first-pass architecture you can critique and reshape in minutes."
+            />
+            <HelpBlock
+              title="Keep the diagram and the build notes together"
+              body="The canvas shows structure. The docs panel lists stack choices, chapter goals, and shell commands. You are not copy-pasting between a chat and a drawing tool."
+            />
+            <HelpBlock
+              title="Refine without redrawing everything"
+              body="Follow up in chat — add OAuth, expand the database chapter, swap the queue — and ArchitectAI updates the blueprint. You still own freehand edits on the board."
+            />
+            <HelpBlock
+              title="Stay local while you iterate"
+              body="Boards autosave in your browser. No account required for the MVP. Export or redraw freely on the canvas anytime."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* How you use it */}
+      <section className="border-t border-[var(--line)] px-6 py-20">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">
+            How you use it
+          </h2>
+          <ol className="mt-10 space-y-0">
+            {[
+              {
+                n: "01",
+                title: "Open the whiteboard",
+                body: "Start a board session. Optionally switch generation engine A/B if you have both API keys configured.",
+              },
+              {
+                n: "02",
+                title: "Describe the product and constraints",
+                body: "Example: “Build an AI job application agent with Next.js, Clerk, and Postgres. Include setup, resume upload flow, dashboard, and deployment.”",
+              },
+              {
+                n: "03",
+                title: "Watch chat, docs, and diagrams update together",
+                body: "Chat streams the plan. Docs fills chapter by chapter. The canvas draws each diagram as it is ready — then you edit or ask for refinements.",
+              },
+            ].map((step) => (
+              <li
+                key={step.n}
+                className="grid grid-cols-[4rem_1fr] gap-4 border-t border-[var(--line)] py-6 last:border-b"
+              >
+                <span className="font-mono text-sm text-[var(--accent)]">
+                  {step.n}
+                </span>
+                <div>
+                  <h3 className="text-base font-semibold">{step.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--muted)] sm:text-base">
+                    {step.body}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* What you should expect */}
+      <section className="border-t border-[var(--line)] px-6 py-20">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">
+            What you should expect
+          </h2>
+          <p className="mt-4 text-base leading-relaxed text-[var(--muted)] sm:text-lg">
+            ArchitectAI designs and documents. It does not scaffold your repo,
+            deploy your app, or invent proprietary APIs. Treat the output as a
+            strong draft architecture for developers — then validate stack
+            choices against your real constraints.
+          </p>
+          <div className="mt-10 grid gap-8 sm:grid-cols-2">
+            <Expect
+              label="Good for"
+              items={[
+                "Greenfield product architecture",
+                "Explaining a system to collaborators",
+                "Breaking a build into ordered chapters",
+                "Iterating diagram + notes in one place",
+              ]}
+            />
+            <Expect
+              label="Not for"
+              items={[
+                "Generating production code end-to-end",
+                "Realtime multiplayer whiteboarding",
+                "Cloud sync or team accounts (MVP is local)",
+                "Replacing domain review with an expert",
+              ]}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Closing CTA */}
+      <section className="border-t border-[var(--line)] px-6 py-24">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">
+            Architect the next project on the board.
+          </h2>
+          <p className="mx-auto mt-4 max-w-md text-base text-[var(--muted)]">
+            One prompt. Diagrams and steps you can edit. Start from the
+            whiteboard.
+          </p>
           <Link
             href="/board"
-            className="rounded-md bg-[var(--ink)] px-5 py-2.5 text-sm font-medium text-[var(--panel)]"
+            className="mt-8 inline-block rounded-md bg-[var(--ink)] px-6 py-3 text-sm font-medium text-[var(--panel)] transition-transform hover:scale-[1.02]"
           >
             Open whiteboard
           </Link>
-          <span className="text-xs text-[var(--muted)]">
-            Free models · Gemini / Groq · local save
-          </span>
         </div>
+      </section>
 
-        <div className="mt-14 grid gap-4 sm:grid-cols-3">
-          {[
-            {
-              title: "Chat to blueprint",
-              body: "Tell it what to build. It returns a typed architecture, not a vague essay.",
-            },
-            {
-              title: "Draw & edit",
-              body: "AI places frames, nodes, and arrows. You keep full Excalidraw control.",
-            },
-            {
-              title: "Docs beside canvas",
-              body: "Tech stack, commands, and steps stay synced with the diagrams.",
-            },
-          ].map((item) => (
-            <div
-              key={item.title}
-              className="border border-[var(--line)] bg-[var(--panel)]/90 p-4"
-            >
-              <h2 className="text-sm font-semibold">{item.title}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                {item.body}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
+      <footer className="border-t border-[var(--line)] px-6 py-6 text-center text-xs text-[var(--muted)]">
+        ArchitectAI · local boards · design through deploy
+      </footer>
     </main>
+  );
+}
+
+function HelpBlock({ title, body }: { title: string; body: string }) {
+  return (
+    <div>
+      <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+      <p className="mt-2 text-base leading-relaxed text-[var(--muted)]">
+        {body}
+      </p>
+    </div>
+  );
+}
+
+function Expect({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+        {label}
+      </p>
+      <ul className="mt-3 space-y-2 text-sm leading-relaxed text-[var(--ink)]">
+        {items.map((item) => (
+          <li key={item} className="border-b border-[var(--line)] pb-2">
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function BoardFrame({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="border border-[var(--line)] bg-[var(--bg)] p-3">
+      <p className="mb-2 text-xs font-semibold">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function Flow({ nodes }: { nodes: string[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {nodes.map((node, i) => (
+        <span key={node} className="flex items-center gap-1.5">
+          <span className="border border-[var(--ink)]/40 bg-[var(--panel)] px-2 py-1 text-[11px] font-medium">
+            {node}
+          </span>
+          {i < nodes.length - 1 && (
+            <span className="text-[10px] text-[var(--muted)]">→</span>
+          )}
+        </span>
+      ))}
+    </div>
   );
 }
