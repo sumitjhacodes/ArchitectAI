@@ -1,36 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ArchitectAI
 
-## Getting Started
+Agentic whiteboard: describe a project, get architecture diagrams on an Excalidraw canvas plus chaptered build docs.
 
-First, run the development server:
+## Setup
+
+```bash
+npm install
+cp .env.example .env.local
+```
+
+Add at least one free API key in `.env.local`:
+
+- `GOOGLE_GENERATIVE_AI_API_KEY` — [Google AI Studio](https://aistudio.google.com/apikey)
+- `GROQ_API_KEY` — [Groq Console](https://console.groq.com/keys)
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) → **Open whiteboard**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Next.js 16 · React 19 · Tailwind 4
+- `@excalidraw/excalidraw`
+- Vercel AI SDK (`ai`) + Gemini / Groq
+- Zod blueprints · `localStorage` persistence
 
-## Learn More
+## Usage
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Pick **Gemini** or **Groq** in the chat sidebar.
+2. Ask e.g. “Build an AI job application agent with Next.js and Clerk”.
+3. ArchitectAI fills the canvas (frames, nodes, arrows) and the Docs panel.
+4. Edit the board manually like Excalidraw; refresh restores from local storage.

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ArchitectAI — Output Preview</title>
+  <style>
+    :root {
+      --bg: #f4f2ec;
+      --panel: #fffdf8;
+      --ink: #1c1917;
+      --muted: #78716c;
+      --line: #e7e5e4;
+      --accent: #0f766e;
+      --chat: #fafaf9;
+      --node: #fff;
+      --frame: #f5f5f4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+    header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 1.15rem;
+      font-weight: 650;
+    }
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .prompt {
+      margin: 12px 20px 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      background: #ecfdf5;
+      border-left: 3px solid var(--accent);
+      font-size: 0.92rem;
+    }
+    .workspace {
+      display: grid;
+      grid-template-columns: 260px 1fr 280px;
+      gap: 0;
+      height: calc(100vh - 120px);
+      margin-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+    @media (max-width: 960px) {
+      .workspace {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+    }
+    .panel {
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      overflow: auto;
+      padding: 14px;
+    }
+    .panel:last-child { border-right: none; }
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 0.7rem;
+      color: var(--accent);
+      background: #f0fdfa;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .msg {
+      padding: 10px;
+      border: 1px solid var(--line);
+      background: var(--chat);
+      margin-bottom: 10px;
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+    .msg .who {
+      font-weight: 650;
+      font-size: 0.75rem;
+      margin-bottom: 4px;
+    }
+    .msg.you { opacity: 0.85; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .tag {
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+    .tag.ok { border-color: #a7f3d0; color: #047857; background: #ecfdf5; }
+    .canvas-area {
+      background:
+        radial-gradient(circle, #d6d3d1 1px, transparent 1px) 0 0 / 18px 18px,
+        #fafaf9;
+      padding: 18px;
+    }
+    .chapter {
+      background: var(--frame);
+      border: 1px solid #d6d3d1;
+      padding: 14px;
+      margin-bottom: 14px;
+      max-width: 720px;
+    }
+    .chapter h3 {
+      margin: 0 0 12px;
+      font-size: 0.9rem;
+    }
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .node {
+      background: var(--node);
+      border: 1.5px solid #44403c;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      min-width: 90px;
+      text-align: center;
+    }
+    .node.ai { border-color: var(--accent); color: var(--accent); }
+    .node.db { border-style: dashed; }
+    .arrow { color: var(--muted); font-size: 0.9rem; }
+    .wire {
+      display: flex;
+      gap: 12px;
+      min-height: 90px;
+    }
+    .nav {
+      width: 80px;
+      border: 1px solid #a8a29e;
+      padding: 8px;
+      font-size: 0.75rem;
+      background: #fff;
+    }
+    .nav div { margin-bottom: 6px; color: var(--muted); }
+    .main {
+      flex: 1;
+      border: 1px solid #a8a29e;
+      padding: 12px;
+      background: #fff;
+      font-size: 0.8rem;
+    }
+    .docs h3 {
+      margin: 14px 0 6px;
+      font-size: 0.9rem;
+    }
+    .docs h3:first-child { margin-top: 0; }
+    .docs p, .docs li {
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: #44403c;
+    }
+    .docs code {
+      display: block;
+      margin: 6px 0 10px;
+      padding: 8px 10px;
+      background: #1c1917;
+      color: #fafaf9;
+      font-size: 0.75rem;
+      font-family: ui-monospace, Consolas, monospace;
+      overflow-x: auto;
+    }
+    .note {
+      margin: 12px 20px 20px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ArchitectAI — output preview (mock)</h1>
+    <p>This is how the app will look after you ask it to build a project.</p>
+  </header>
+
+  <div class="prompt">
+    <strong>You type:</strong>
+    ArchitectAI, I want to build an AI job application agent with Next.js, Clerk, and Postgres. Include architecture, flows, and build steps.
+  </div>
+
+  <div class="workspace">
+    <!-- CHAT -->
+    <aside class="panel">
+      <h2>Chat <span class="pill">Gemini</span></h2>
+      <div class="msg you">
+        <div class="who">You</div>
+        Build an AI job application agent with Next.js, Clerk, Postgres…
+      </div>
+      <div class="msg">
+        <div class="who">ArchitectAI</div>
+        Building a full blueprint for <strong>AI Job Application Agent</strong>.
+        Stack: Next.js App Router, Clerk, Postgres, AI resume parser.
+        Drawing 4 chapters on the canvas and filling Docs with implementation steps.
+        <div class="tags">
+          <span class="tag ok">Blueprint applied</span>
+          <span class="tag">4 chapters</span>
+          <span class="tag">18 nodes</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CANVAS -->
+    <main class="panel canvas-area">
+      <h2>Canvas <span class="pill">editable like Excalidraw</span></h2>
+
+      <div class="chapter">
+        <h3>Overview — System architecture</h3>
+        <div class="flow">
+          <div class="node">Browser</div><span class="arrow">→</span>
+          <div class="node">Next.js App</div><span class="arrow">→</span>
+          <div class="node">Clerk Auth</div>
+        </div>
+        <div class="flow" style="margin-top:10px">
+          <div class="node">API Routes</div><span class="arrow">→</span>
+          <div class="node ai">AI Parser</div><span class="arrow">→</span>
+          <div class="node db">Postgres</div>
+        </div>
+      </div>
+
+      <div class="chapter">
+        <h3>Chapter 1 — Project setup</h3>
+        <div class="flow">
+          <div class="node">create-next-app</div><span class="arrow">→</span>
+          <div class="node">Install deps</div><span class="arrow">→</span>
+          <div class="node">Clerk + DB env</div><span class="arrow">→</span>
+          <div class="node">First deploy</div>
+        </div>
+      </div>
+
+      <div class="chapter">
+        <h3>Chapter 2 — Resume upload flow</h3>
+        <div class="flow">
+          <div class="node">Upload PDF</div><span class="arrow">→</span>
+          <div class="node db">Storage</div><span class="arrow">→</span>
+          <div class="node ai">AI extract</div><span class="arrow">→</span>
+          <div class="node db">Profile row</div>
+        </div>
+      </div>
+
+      <div class="chapter">
+        <h3>Chapter 3 — Dashboard wireframe</h3>
+        <div class="wire">
+          <div class="nav">
+            <strong>Nav</strong>
+            <div>Home</div>
+            <div>Jobs</div>
+            <div>Profile</div>
+          </div>
+          <div class="main">
+            <strong>Main content</strong><br />
+            Job list · filters · Apply with AI
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- DOCS -->
+    <aside class="panel docs">
+      <h2>Docs <span class="pill">collapsible</span></h2>
+      <h3>Tech stack</h3>
+      <p>Next.js 16 · Clerk · Postgres · Vercel AI SDK · Tailwind</p>
+
+      <h3>Chapter 1 — Project setup</h3>
+      <p>1. Scaffold the app</p>
+      <code>npx create-next-app@latest job-agent --typescript --tailwind --app</code>
+      <p>2. Add auth + DB clients</p>
+      <code>npm i @clerk/nextjs postgres zod ai</code>
+      <p>3. Set CLERK_* and DATABASE_URL in .env.local</p>
+
+      <h3>Chapter 2 — Resume upload</h3>
+      <p>API route parses PDF → structured profile JSON → insert into profiles. Canvas shows the same flow as boxes + arrows.</p>
+    </aside>
+  </div>
+
+  <p class="note">
+    Mock only — not the real app yet. After build, the center panel will be a real Excalidraw board you can draw on.
+  </p>
+</body>
+</html>
