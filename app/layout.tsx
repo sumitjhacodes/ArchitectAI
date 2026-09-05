@@ -17,6 +17,10 @@ export const metadata: Metadata = {
   title: "ArchitectAI — Agentic Whiteboard",
   description:
     "Ask AI to design project architecture with editable Excalidraw diagrams and build steps.",
+  icons: {
+    icon: [{ url: "/ArchitectAI.png", type: "image/png" }],
+    apple: [{ url: "/ArchitectAI.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -26,7 +30,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${display.variable} ${sans.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="min-h-full font-sans" suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   );
 }
