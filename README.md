@@ -1,18 +1,18 @@
 # ArchitectAI
 
-Agentic whiteboard: describe a project, get architecture diagrams on an Excalidraw canvas plus chaptered build docs.
+Agentic whiteboard: describe a project, get architecture diagrams on an Excalidraw canvas plus chaptered build docs (design → deploy).
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env.local
+cp .env.example .env
 ```
 
-Add at least one free API key in `.env.local`:
+Add at least one API key in `.env` (Engine A / Engine B):
 
-- `GOOGLE_GENERATIVE_AI_API_KEY` — [Google AI Studio](https://aistudio.google.com/apikey)
-- `GROQ_API_KEY` — [Groq Console](https://console.groq.com/keys)
+- `GOOGLE_GENERATIVE_AI_API_KEY`
+- `GROQ_API_KEY`
 
 ```bash
 npm run dev
@@ -24,12 +24,11 @@ Open [http://localhost:3000](http://localhost:3000) → **Open whiteboard**.
 
 - Next.js 16 · React 19 · Tailwind 4
 - `@excalidraw/excalidraw`
-- Vercel AI SDK (`ai`) + Gemini / Groq
-- Zod blueprints · `localStorage` persistence
+- Vercel AI SDK · Zod blueprints · `localStorage` persistence
 
 ## Usage
 
-1. Pick **Gemini** or **Groq** in the chat sidebar.
-2. Ask e.g. “Build an AI job application agent with Next.js and Clerk”.
-3. ArchitectAI fills the canvas (frames, nodes, arrows) and the Docs panel.
-4. Edit the board manually like Excalidraw; refresh restores from local storage.
+1. Open the board (optionally switch engine A/B).
+2. Ask e.g. “Build an AI job application agent with Next.js and Clerk — design through deploy”.
+3. Chat streams the plan; Docs and the canvas update chapter by chapter.
+4. Edit the board manually; refresh restores from local storage.
