@@ -70,7 +70,7 @@ export function WhiteboardCanvas({
   }, [sceneRevision]);
 
   return (
-    <div className="relative h-full w-full excalidraw-wrapper">
+    <div className="relative h-full w-full excalidraw-wrapper" suppressHydrationWarning>
       <Excalidraw
         excalidrawAPI={(api) => {
           apiRef.current = api;
@@ -78,11 +78,12 @@ export function WhiteboardCanvas({
         }}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onChange={handleChange as any}
+        theme="light"
         UIOptions={{
           canvasActions: {
             loadScene: true,
             export: { saveFileToDisk: true },
-            toggleTheme: true,
+            toggleTheme: false,
           },
         }}
       />
