@@ -1,7 +1,11 @@
 import { generateObject, generateText, streamText } from "ai";
 import { ARCHITECT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
 import { buildArchitectUserPrompt } from "@/lib/ai/user-prompt";
-import { getArchitectModel } from "@/lib/ai/providers";
+import {
+  getArchitectModel,
+  getStructuredModel,
+} from "@/lib/ai/providers";
+import { parseModelJson } from "@/lib/ai/parse-json";
 import {
   architectureBlueprintSchema,
   type ArchitectureBlueprint,
@@ -12,9 +16,20 @@ import {
   singleChapterSchema,
   type BlueprintOutline,
 } from "@/lib/architecture/outline-schema";
+import { normalizeOutline } from "@/lib/architecture/normalize-outline";
+import { normalizeChapterRaw } from "@/lib/architecture/normalize-chapter";
 import type { AiProvider } from "@/types/board";
 
 export const maxDuration = 180;
+
+const MAX_OUTPUT_TOKENS = 6144;
+
+/** Short system for structured JSON — long architect prompt confuses Groq JSON mode. */
+const STRUCTURED_JSON_SYSTEM = `You are ArchitectAI. Reply with valid JSON only.
+No markdown fences. No prose before/after JSON.
+diagram.type must be one of: system, flow, sequence, erd, wireframe.
+step.n must be a number. commands must be a string array (use [] if none).
+Keep every string short and concrete.`;
 
 type IncomingMessage = {
   role: "user" | "assistant" | "system";
@@ -52,7 +67,7 @@ type StreamEvent =
     }
   | { type: "error"; error: string };
 
-function normalizeChapter(
+function polishChapter(
   chapter: BlueprintChapter,
   index: number,
 ): BlueprintChapter {
@@ -80,9 +95,38 @@ function normalizeChapter(
   };
 }
 
+function outlineFromUnknown(raw: unknown): BlueprintOutline {
+  const normalized = normalizeOutline(raw);
+  const parsed = blueprintOutlineSchema.safeParse(normalized);
+  if (!parsed.success) {
+    throw new Error("Could not build architecture outline. Try again.");
+  }
+  return parsed.data;
+}
+
+function chapterFromUnknown(
+  raw: unknown,
+  index: number,
+  fallbackTitle: string,
+): BlueprintChapter {
+  return polishChapter(normalizeChapterRaw(raw, index, fallbackTitle), index);
+}
+
+function extractErrorText(error: unknown): string | null {
+  if (!error || typeof error !== "object") return null;
+  const e = error as { text?: unknown; cause?: unknown };
+  if (typeof e.text === "string" && e.text.trim()) return e.text;
+  const cause = e.cause as { text?: unknown } | undefined;
+  if (cause && typeof cause.text === "string" && cause.text.trim()) {
+    return cause.text;
+  }
+  return null;
+}
+
+type StructuredModel = ReturnType<typeof getStructuredModel>;
+
 async function generateOutline(
-  model: ReturnType<typeof getArchitectModel>,
-  system: string,
+  model: StructuredModel,
   prompt: string,
 ): Promise<BlueprintOutline> {
   try {
@@ -90,59 +134,77 @@ async function generateOutline(
       model,
       schema: blueprintOutlineSchema,
       schemaName: "BlueprintOutline",
-      system,
+      system: STRUCTURED_JSON_SYSTEM,
       prompt,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
     });
-    return object;
-  } catch {
+    return outlineFromUnknown(object);
+  } catch (error) {
+    const salvaged = extractErrorText(error);
+    if (salvaged) {
+      try {
+        return outlineFromUnknown(parseModelJson(salvaged));
+      } catch {
+        // fall through
+      }
+    }
+
     const { text } = await generateText({
       model,
-      system: `${system}\n\nReturn ONLY JSON for the outline schema. No markdown.`,
-      prompt,
+      system: STRUCTURED_JSON_SYSTEM,
+      prompt: `${prompt}
+
+Return ONE JSON object with keys:
+projectName, summary, assumptions[], techStack[{name,role,category}],
+chapterTitles[], tradeOffs[{decision,alternatives,pros,cons,riskMitigation}],
+risks[{risk,severity,probability,mitigation}].`,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
     });
-    const cleaned = text
-      .replace(/^```json\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
-    const parsed = blueprintOutlineSchema.safeParse(JSON.parse(cleaned));
-    if (!parsed.success) {
-      throw new Error("Could not build architecture outline. Try again.");
-    }
-    return parsed.data;
+    return outlineFromUnknown(parseModelJson(text));
   }
 }
 
 async function generateChapter(
-  model: ReturnType<typeof getArchitectModel>,
-  system: string,
+  model: StructuredModel,
   prompt: string,
+  index: number,
+  fallbackTitle: string,
 ): Promise<BlueprintChapter> {
   try {
     const { object } = await generateObject({
       model,
       schema: singleChapterSchema,
       schemaName: "SingleChapter",
-      system,
+      system: STRUCTURED_JSON_SYSTEM,
       prompt,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
     });
-    return object.chapter;
-  } catch {
-    const { text } = await generateText({
-      model,
-      system: `${system}\n\nReturn ONLY JSON: { "chapter": { ... } }. No markdown.`,
-      prompt,
-    });
-    const cleaned = text
-      .replace(/^```json\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
-    const parsed = singleChapterSchema.safeParse(JSON.parse(cleaned));
-    if (!parsed.success) {
-      throw new Error("Could not generate a chapter. Try again.");
+    return chapterFromUnknown(object, index, fallbackTitle);
+  } catch (error) {
+    const salvaged = extractErrorText(error);
+    if (salvaged) {
+      try {
+        return chapterFromUnknown(parseModelJson(salvaged), index, fallbackTitle);
+      } catch {
+        // fall through
+      }
     }
-    return parsed.data.chapter;
+
+    try {
+      const { text } = await generateText({
+        model,
+        system: STRUCTURED_JSON_SYSTEM,
+        prompt: `${prompt}
+
+Return ONE JSON object shaped like:
+{"chapter":{"id":"c1","title":"${fallbackTitle}","goal":"...","steps":[{"n":1,"title":"...","detail":"...","commands":[]}],"diagram":{"type":"system","nodes":[{"id":"a","label":"A","kind":"service","group":"2-app"}],"edges":[{"from":"a","to":"b","label":""}]}}}`,
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+      });
+      return chapterFromUnknown(parseModelJson(text), index, fallbackTitle);
+    } catch {
+      // Last resort: never block the whole blueprint on one chapter
+      return chapterFromUnknown({}, index, fallbackTitle);
+    }
   }
 }
 
@@ -166,6 +228,7 @@ export async function POST(request: Request) {
     }
 
     const model = getArchitectModel(provider);
+    const structuredModel = getStructuredModel(provider);
     const lastUser =
       [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
 
@@ -213,10 +276,14 @@ export async function POST(request: Request) {
           send({ type: "status", message: "Structuring the build plan…" });
 
           // 2) Outline (stack + chapter titles)
+          const outlineBudget =
+            provider === "groq"
+              ? "Produce 5 chapterTitles. Keep summary/assumptions/tradeOffs/risks short (1 sentence each)."
+              : "Produce the outline with 5–7 chapterTitles covering system, frontend, backend, database, core flow, setup, deploy.";
+
           const outline = await generateOutline(
-            model,
-            ARCHITECT_SYSTEM_PROMPT + existingNote,
-            `${userPrompt}\n\nNarration:\n${narration.slice(0, 1500)}\n\nProduce the outline with 5–7 chapterTitles covering system, frontend, backend, database, core flow, setup, deploy.`,
+            structuredModel,
+            `${userPrompt}\n\nNarration:\n${narration.slice(0, provider === "groq" ? 900 : 1500)}\n\n${outlineBudget}${existingNote}`,
           );
 
           const titles = (outline.chapterTitles ?? []).slice(0, 7);
@@ -250,9 +317,13 @@ export async function POST(request: Request) {
               message: `Writing chapter ${i + 1}/${total}: ${titles[i]}…`,
             });
 
+            const chapterBudget =
+              provider === "groq"
+                ? "Produce THIS chapter only: 4–6 short steps (detail ≤ 2 sentences each; ≤ 2 commands), one layered diagram (3–5 nodes, short labels)."
+                : "Produce THIS chapter only: 5–8 executable steps, one clean layered diagram (3–7 nodes).";
+
             const rawChapter = await generateChapter(
-              model,
-              ARCHITECT_SYSTEM_PROMPT + existingNote,
+              structuredModel,
               `${userPrompt}
 
 Project: ${outline.projectName}
@@ -260,11 +331,14 @@ Summary: ${outline.summary}
 Stack: ${outline.techStack.map((t) => t.name).join(", ")}
 Chapter ${i + 1} of ${total} title: "${titles[i]}"
 Previous chapters: ${chapters.map((c) => c.title).join(" | ") || "(none)"}
+${existingNote}
 
-Produce THIS chapter only: 5–8 executable steps, one clean layered diagram (3–7 nodes).`,
+${chapterBudget}`,
+              i,
+              titles[i] || `Chapter ${i + 1}`,
             );
 
-            const chapter = normalizeChapter(rawChapter, i);
+            const chapter = rawChapter;
             chapters.push(chapter);
 
             send({
