@@ -9,11 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@supabase/auth-helpers-nextjs": "^0.15.0",
-    "@supabase/supabase-js": "^2.115.0",
+    "@ai-sdk/google": "^4.0.64",
+    "@ai-sdk/groq": "^4.0.37",
+    "@excalidraw/excalidraw": "^0.18.1",
+    "ai": "^7.0.93",
     "next": "16.3.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
