@@ -1,7 +1,9 @@
 "use client";
 
 import { blueprintToMarkdown } from "@/lib/architecture/blueprint-to-markdown";
+import { blueprintToMermaidBlocks } from "@/lib/architecture/blueprint-to-mermaid";
 import type { ArchitectureBlueprint } from "@/lib/architecture/schema";
+import { MermaidDiagram } from "./MermaidDiagram";
 
 type Props = {
   blueprint: ArchitectureBlueprint | null;
@@ -30,7 +32,7 @@ export function DocsPanel({ blueprint, open, onToggle }: Props) {
         <button
           type="button"
           onClick={onToggle}
-          className="writing-mode-vertical rotate-180 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]"
+          className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]"
           style={{ writingMode: "vertical-rl" }}
           aria-label="Open docs"
         >
@@ -42,12 +44,13 @@ export function DocsPanel({ blueprint, open, onToggle }: Props) {
 
   const markdown = blueprint ? blueprintToMarkdown(blueprint) : null;
   const blocks = markdown ? markdown.split("\n") : [];
+  const mermaidBlocks = blueprint ? blueprintToMermaidBlocks(blueprint) : [];
 
   return (
-    <aside className="flex h-full w-full max-w-[320px] flex-col border-l border-[var(--line)] bg-[var(--panel)]">
+    <aside className="flex h-full w-full max-w-[400px] flex-col border-l border-[var(--line)] bg-[var(--panel)]">
       <div className="flex items-center justify-between border-b border-[var(--line)] px-3 py-2.5">
         <div>
-          <p className="text-sm font-semibold">Docs</p>
+          <p className="text-sm font-semibold">Docs & flows</p>
           <p className="text-[11px] text-[var(--muted)]">
             {blueprint ? blueprint.projectName : "No blueprint yet"}
           </p>
@@ -64,9 +67,28 @@ export function DocsPanel({ blueprint, open, onToggle }: Props) {
       <div className="flex-1 overflow-y-auto px-3 py-3 text-sm leading-relaxed">
         {!blueprint && (
           <p className="text-[var(--muted)]">
-            After you generate a blueprint, chapter steps and commands appear
-            here alongside the canvas diagrams.
+            After you generate, Mermaid flow diagrams and step-by-step build
+            notes appear here — enough to understand the architecture and start
+            building without leaving ArchitectAI.
           </p>
+        )}
+
+        {mermaidBlocks.length > 0 && (
+          <div className="mb-4">
+            <h3 className="mb-2 text-sm font-semibold text-[var(--ink)]">
+              Architecture flows
+            </h3>
+            <p className="mb-3 text-xs text-[var(--muted)]">
+              Read these flows top to bottom, then follow the chapter steps.
+            </p>
+            {mermaidBlocks.map((block) => (
+              <MermaidDiagram
+                key={block.id}
+                title={block.title}
+                code={block.code}
+              />
+            ))}
+          </div>
         )}
 
         {blocks.map((line, index) => {
