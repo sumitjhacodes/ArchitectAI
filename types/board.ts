@@ -23,5 +23,7 @@ export type StoredBoardState = {
   blueprint: ArchitectureBlueprint | null;
   scene: BoardSceneSnapshot | null;
   docsOpen: boolean;
+  /** Optional for older localStorage payloads */
+  chatOpen?: boolean;
   updatedAt: number;
 };
