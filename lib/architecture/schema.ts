@@ -1,71 +1,78 @@
 import { z } from "zod";
 
+/**
+ * Keep this schema Gemini/Groq-friendly: avoid .min/.max/.int/.positive
+ * (those often become JSON-schema constraints providers reject as invalid args).
+ */
+
 export const techStackItemSchema = z.object({
-  name: z.string().describe("Technology name, e.g. Next.js"),
-  role: z.string().describe("How it is used in the project"),
-  category: z
-    .string()
-    .describe("Category such as frontend, backend, database, auth, ai"),
+  name: z.string(),
+  role: z.string(),
+  category: z.string(),
 });
 
 export const stepSchema = z.object({
-  n: z.number().int().positive(),
+  n: z.number(),
   title: z.string(),
   detail: z.string(),
-  commands: z
-    .array(z.string())
-    .optional()
-    .describe("Shell or CLI commands when relevant"),
+  commands: z.array(z.string()),
 });
 
 export const diagramNodeSchema = z.object({
-  id: z.string().describe("Stable id used by edges, e.g. nextjs-app"),
+  id: z.string(),
   label: z.string(),
-  kind: z
-    .string()
-    .describe(
-      "client | app | api | service | db | ai | auth | storage | queue | step | other",
-    ),
-  group: z.string().optional(),
+  kind: z.string(),
+  group: z.string(),
 });
 
 export const diagramEdgeSchema = z.object({
   from: z.string(),
   to: z.string(),
-  label: z.string().optional(),
+  label: z.string(),
 });
 
 export const diagramSchema = z.object({
   type: z.enum(["system", "flow", "sequence", "erd", "wireframe"]),
-  nodes: z.array(diagramNodeSchema).min(1),
+  nodes: z.array(diagramNodeSchema),
   edges: z.array(diagramEdgeSchema),
 });
 
 export const chapterSchema = z.object({
   id: z.string(),
-  title: z.string().describe('e.g. "Chapter 1: Project Setup"'),
+  title: z.string(),
   goal: z.string(),
-  steps: z.array(stepSchema).min(1),
+  steps: z.array(stepSchema),
   diagram: diagramSchema,
+});
+
+export const tradeOffSchema = z.object({
+  decision: z.string(),
+  alternatives: z.array(z.string()),
+  pros: z.array(z.string()),
+  cons: z.array(z.string()),
+  riskMitigation: z.string(),
+});
+
+export const riskSchema = z.object({
+  risk: z.string(),
+  severity: z.enum(["high", "medium", "low"]),
+  probability: z.enum(["high", "medium", "low"]),
+  mitigation: z.string(),
 });
 
 export const architectureBlueprintSchema = z.object({
   projectName: z.string(),
   summary: z.string(),
-  techStack: z.array(techStackItemSchema).min(1),
-  chapters: z
-    .array(chapterSchema)
-    .min(2)
-    .max(8)
-    .describe("Ordered implementation chapters with diagrams"),
+  assumptions: z.array(z.string()),
+  techStack: z.array(techStackItemSchema),
+  chapters: z.array(chapterSchema),
+  tradeOffs: z.array(tradeOffSchema),
+  risks: z.array(riskSchema),
 });
 
+/** Blueprint-only schema for the structured call (narration streamed separately). */
 export const architectResponseSchema = z.object({
-  narration: z
-    .string()
-    .describe(
-      "Short chat reply summarizing what was drawn and how to proceed",
-    ),
+  narration: z.string(),
   blueprint: architectureBlueprintSchema,
 });
 

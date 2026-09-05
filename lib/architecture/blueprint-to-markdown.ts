@@ -8,6 +8,14 @@ export function blueprintToMarkdown(blueprint: ArchitectureBlueprint): string {
   lines.push("");
   lines.push(blueprint.summary);
   lines.push("");
+
+  lines.push("## Assumptions");
+  lines.push("");
+  for (const item of blueprint.assumptions ?? []) {
+    lines.push(`- ${item}`);
+  }
+  lines.push("");
+
   lines.push("## Tech stack");
   lines.push("");
   for (const item of blueprint.techStack) {
@@ -36,6 +44,31 @@ export function blueprintToMarkdown(blueprint: ArchitectureBlueprint): string {
         }
       }
     }
+  }
+
+  if (blueprint.tradeOffs?.length) {
+    lines.push("## Trade-offs");
+    lines.push("");
+    for (const t of blueprint.tradeOffs) {
+      lines.push(`### ${t.decision}`);
+      lines.push("");
+      lines.push(`- **Alternatives:** ${t.alternatives.join("; ")}`);
+      lines.push(`- **Pros:** ${t.pros.join("; ")}`);
+      lines.push(`- **Cons:** ${t.cons.join("; ")}`);
+      lines.push(`- **Mitigation:** ${t.riskMitigation}`);
+      lines.push("");
+    }
+  }
+
+  if (blueprint.risks?.length) {
+    lines.push("## Risks");
+    lines.push("");
+    for (const r of blueprint.risks) {
+      lines.push(
+        `- **${r.risk}** (${r.severity} severity / ${r.probability} probability) — ${r.mitigation}`,
+      );
+    }
+    lines.push("");
   }
 
   return lines.join("\n");
