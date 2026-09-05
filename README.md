@@ -9,7 +9,7 @@ npm install
 cp .env.example .env
 ```
 
-Add at least one API key in `.env` (Engine A / Engine B):
+Add at least one API key in `.env` (Gemini / Groq):
 
 - `GOOGLE_GENERATIVE_AI_API_KEY`
 - `GROQ_API_KEY`

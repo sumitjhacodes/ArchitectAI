@@ -3,8 +3,8 @@
 import type { AiProvider } from "@/types/board";
 
 const OPTIONS: { id: AiProvider; label: string }[] = [
-  { id: "gemini", label: "A" },
-  { id: "groq", label: "B" },
+  { id: "gemini", label: "Gemini" },
+  { id: "groq", label: "Groq" },
 ];
 
 type Props = {
@@ -18,8 +18,8 @@ export function ProviderSwitcher({ value, onChange, disabled }: Props) {
     <div
       className="inline-flex rounded-md border border-[var(--line)] bg-[var(--panel)] p-0.5"
       role="group"
-      aria-label="Generation engine"
-      title="Switch generation engine"
+      aria-label="AI provider"
+      title="Switch AI provider"
     >
       {OPTIONS.map((option) => {
         const active = option.id === value;
@@ -29,7 +29,7 @@ export function ProviderSwitcher({ value, onChange, disabled }: Props) {
             type="button"
             disabled={disabled}
             onClick={() => onChange(option.id)}
-            className={`min-w-8 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
               active
                 ? "bg-[var(--ink)] text-[var(--panel)]"
                 : "text-[var(--muted)] hover:text-[var(--ink)]"

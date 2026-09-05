@@ -168,7 +168,7 @@ export default function HomePage() {
               {
                 n: "01",
                 title: "Open the whiteboard",
-                body: "Start a board session. Optionally switch generation engine A/B if you have both API keys configured.",
+                body: "Start a board session. Optionally switch Gemini / Groq if you have both API keys configured.",
               },
               {
                 n: "02",
