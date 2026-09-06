@@ -13,7 +13,12 @@ export type ChatMessage = {
 
 export type BoardSceneSnapshot = {
   elements: unknown[];
-  appState?: Record<string, unknown>;
+  appState?: {
+    scrollX?: number;
+    scrollY?: number;
+    zoom?: { value: number };
+    viewBackgroundColor?: string;
+  };
 };
 
 export type StoredBoardState = {

@@ -39,10 +39,37 @@ export function BoardShell() {
   const [sceneElements, setSceneElements] = useState<readonly SceneElement[]>(
     [],
   );
+  const [sceneAppState, setSceneAppState] = useState<{
+    scrollX?: number;
+    scrollY?: number;
+    zoom?: { value: number };
+    viewBackgroundColor?: string;
+  } | null>(null);
   const [sceneRevision, setSceneRevision] = useState(0);
 
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const liveElementsRef = useRef<readonly SceneElement[]>([]);
+  const liveAppStateRef = useRef<{
+    scrollX?: number;
+    scrollY?: number;
+    zoom?: { value: number };
+    viewBackgroundColor?: string;
+  } | null>(null);
+  const boardMetaRef = useRef({
+    provider,
+    messages,
+    blueprint,
+    docsOpen,
+    chatOpen,
+  });
+  boardMetaRef.current = {
+    provider,
+    messages,
+    blueprint,
+    docsOpen,
+    chatOpen,
+  };
 
   useEffect(() => {
     const stored = loadBoardState();
@@ -52,8 +79,22 @@ export function BoardShell() {
       setBlueprint(stored.blueprint);
       setDocsOpen(stored.docsOpen);
       setChatOpen(stored.chatOpen ?? true);
-      if (stored.scene?.elements?.length) {
-        setSceneElements(stored.scene.elements as SceneElement[]);
+
+      const savedElements = stored.scene?.elements as SceneElement[] | undefined;
+      if (savedElements?.length) {
+        liveElementsRef.current = savedElements;
+        setSceneElements(savedElements);
+        if (stored.scene?.appState) {
+          liveAppStateRef.current = stored.scene.appState;
+          setSceneAppState(stored.scene.appState);
+        }
+        setSceneRevision((n) => n + 1);
+      } else if (stored.blueprint) {
+        const rebuilt = blueprintToExcalidrawElements(
+          stored.blueprint,
+        ) as SceneElement[];
+        liveElementsRef.current = rebuilt;
+        setSceneElements(rebuilt);
         setSceneRevision((n) => n + 1);
       }
     }
@@ -68,53 +109,65 @@ export function BoardShell() {
       docsOpen?: boolean;
       chatOpen?: boolean;
       elements?: readonly SceneElement[];
+      appState?: typeof sceneAppState;
     }) => {
       if (!hydrated) return;
+      const meta = boardMetaRef.current;
+      const elements = [
+        ...(partial?.elements ??
+          liveElementsRef.current ??
+          sceneElements),
+      ] as unknown[];
+      const appState =
+        partial && "appState" in partial
+          ? partial.appState
+          : (liveAppStateRef.current ?? sceneAppState);
       saveBoardState({
-        provider: partial?.provider ?? provider,
-        messages: partial?.messages ?? messages,
+        provider: partial?.provider ?? meta.provider,
+        messages: partial?.messages ?? meta.messages,
         blueprint:
           partial && "blueprint" in partial
             ? (partial.blueprint ?? null)
-            : blueprint,
-        docsOpen: partial?.docsOpen ?? docsOpen,
-        chatOpen: partial?.chatOpen ?? chatOpen,
+            : meta.blueprint,
+        docsOpen: partial?.docsOpen ?? meta.docsOpen,
+        chatOpen: partial?.chatOpen ?? meta.chatOpen,
         scene: {
-          elements: [...(partial?.elements ?? sceneElements)] as unknown[],
+          elements,
+          ...(appState ? { appState } : {}),
         },
       });
     },
-    [
-      hydrated,
-      provider,
-      messages,
-      blueprint,
-      docsOpen,
-      chatOpen,
-      sceneElements,
-    ],
+    [hydrated, sceneElements, sceneAppState],
   );
 
+  // Persist chat/blueprint/UI changes (not every Excalidraw pointer move)
   useEffect(() => {
     if (!hydrated) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => persist(), 500);
+    saveTimer.current = setTimeout(() => persist(), 400);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [
-    hydrated,
-    provider,
-    messages,
-    blueprint,
-    docsOpen,
-    chatOpen,
-    sceneElements,
-    persist,
-  ]);
+  }, [hydrated, provider, messages, blueprint, docsOpen, chatOpen, persist]);
+
+  // Flush to localStorage before refresh / tab close
+  useEffect(() => {
+    if (!hydrated) return;
+    const flush = () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      persist();
+    };
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+    };
+  }, [hydrated, persist]);
 
   const applyBlueprint = useCallback((next: ArchitectureBlueprint) => {
     const elements = blueprintToExcalidrawElements(next) as SceneElement[];
+    liveElementsRef.current = elements;
     setBlueprint(next);
     setSceneElements(elements);
     setSceneRevision((n) => n + 1);
@@ -167,6 +220,7 @@ export function BoardShell() {
       setIsLoading(true);
 
       // Clear canvas for a fresh draw pass
+      liveElementsRef.current = [];
       setBlueprint(null);
       setSceneElements([]);
       setSceneRevision((n) => n + 1);
@@ -384,17 +438,48 @@ export function BoardShell() {
 
   const handleClear = useCallback(() => {
     clearBoardState();
+    liveElementsRef.current = [];
+    liveAppStateRef.current = null;
     setMessages([]);
     setBlueprint(null);
     setSceneElements([]);
+    setSceneAppState(null);
     setSceneRevision((n) => n + 1);
     setError(null);
     apiRef.current?.resetScene();
   }, []);
 
-  const handleCanvasChange = useCallback((elements: readonly SceneElement[]) => {
-    setSceneElements(elements);
-  }, []);
+  const canvasSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep canvas edits in refs + debounced localStorage — do NOT setState every
+  // Excalidraw onChange (that loops with updateScene).
+  const handleCanvasChange = useCallback(
+    (
+      elements: readonly SceneElement[],
+      appState: {
+        scrollX: number;
+        scrollY: number;
+        zoom: { value: number };
+        viewBackgroundColor: string;
+      },
+    ) => {
+      liveElementsRef.current = elements;
+      liveAppStateRef.current = {
+        scrollX: appState.scrollX,
+        scrollY: appState.scrollY,
+        zoom: appState.zoom,
+        viewBackgroundColor: appState.viewBackgroundColor,
+      };
+      if (canvasSaveTimer.current) clearTimeout(canvasSaveTimer.current);
+      canvasSaveTimer.current = setTimeout(() => {
+        persist({
+          elements: liveElementsRef.current,
+          appState: liveAppStateRef.current,
+        });
+      }, 500);
+    },
+    [persist],
+  );
 
   if (!hydrated) {
     return (
@@ -482,6 +567,7 @@ export function BoardShell() {
             <WhiteboardCanvas
               sceneRevision={sceneRevision}
               elements={sceneElements}
+              appState={sceneAppState}
               onApiReady={(api) => {
                 apiRef.current = api;
               }}
