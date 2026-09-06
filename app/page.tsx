@@ -59,6 +59,13 @@ export default function HomePage() {
                 How it works
               </a>
             </div>
+            <p className="mt-5 max-w-sm border-l-2 border-[var(--accent)] pl-3 text-xs leading-relaxed text-[var(--muted)]">
+              <span className="font-semibold text-[var(--accent)]">
+                Early version.
+              </span>{" "}
+              Building toward one workspace: idea → architecture, flows, and
+              the steps to ship.
+            </p>
           </div>
 
           <div
