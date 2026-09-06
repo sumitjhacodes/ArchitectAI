@@ -3,13 +3,69 @@ import type {
   BlueprintChapter,
 } from "@/lib/architecture/schema";
 
-function sanitizeId(id: string) {
-  const cleaned = id.replace(/[^a-zA-Z0-9_]/g, "_");
-  return cleaned.match(/^[a-zA-Z]/) ? cleaned : `n_${cleaned}`;
+/** Mermaid keywords that break flowcharts / sequence diagrams as bare IDs. */
+const RESERVED_IDS = new Set([
+  "end",
+  "subgraph",
+  "graph",
+  "flowchart",
+  "sequenceDiagram",
+  "participant",
+  "actor",
+  "style",
+  "class",
+  "classDef",
+  "click",
+  "call",
+  "href",
+  "linkStyle",
+  "default",
+  "direction",
+  "TB",
+  "BT",
+  "LR",
+  "RL",
+  "TD",
+]);
+
+function sanitizeId(id: string): string {
+  let cleaned = id.replace(/[^a-zA-Z0-9_]/g, "_").replace(/_+/g, "_");
+  if (!cleaned || !/^[a-zA-Z]/.test(cleaned)) {
+    cleaned = `n_${cleaned || "node"}`;
+  }
+  // Avoid IDs that start with o/x (circle/cross edge syntax) when single-letter-ish
+  if (/^[oxOX]_/.test(cleaned) || cleaned === "o" || cleaned === "x") {
+    cleaned = `n_${cleaned}`;
+  }
+  if (RESERVED_IDS.has(cleaned) || RESERVED_IDS.has(cleaned.toLowerCase())) {
+    cleaned = `n_${cleaned}`;
+  }
+  return cleaned.slice(0, 48);
 }
 
-function sanitizeLabel(label: string) {
-  return label.replace(/"/g, "'").slice(0, 40);
+/** Labels safe inside Mermaid double quotes. */
+function sanitizeLabel(label: string): string {
+  return label
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/"/g, "'")
+    .replace(/[<>]/g, "")
+    .replace(/\|/g, "/")
+    .replace(/[{}]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 40) || "node";
+}
+
+function nodeShape(id: string, label: string, kind: string): string {
+  const text = sanitizeLabel(label);
+  // Always quote labels — parentheses/brackets in AI text break unquoted shapes.
+  if (kind === "db" || kind === "storage") {
+    return `${id}[("${text}")]`;
+  }
+  if (kind === "client") {
+    return `${id}(["${text}"])`;
+  }
+  return `${id}["${text}"]`;
 }
 
 /** Convert a chapter diagram graph into Mermaid flowchart / sequence syntax. */
@@ -23,48 +79,82 @@ export function chapterToMermaid(chapter: BlueprintChapter): string {
   }
 
   if (diagram.type === "sequence") {
-    const lines = ["sequenceDiagram"];
+    const idMap = new Map<string, string>();
+    const participants: string[] = [];
     const seen = new Set<string>();
+
+    const ensureParticipant = (rawId: string, label?: string) => {
+      const existing = idMap.get(rawId);
+      if (existing) return existing;
+      const id = sanitizeId(rawId);
+      idMap.set(rawId, id);
+      if (!seen.has(id)) {
+        seen.add(id);
+        participants.push(
+          `  participant ${id} as ${sanitizeLabel(label || rawId)}`,
+        );
+      }
+      return id;
+    };
+
     for (const node of nodes) {
-      const id = sanitizeId(node.id);
-      if (seen.has(id)) continue;
-      seen.add(id);
-      lines.push(`  participant ${id} as ${sanitizeLabel(node.label)}`);
+      ensureParticipant(node.id, node.label);
     }
     for (const edge of edges) {
-      const from = sanitizeId(edge.from);
-      const to = sanitizeId(edge.to);
-      const label = sanitizeLabel(edge.label || "call");
-      lines.push(`  ${from}->>${to}: ${label}`);
+      ensureParticipant(edge.from);
+      ensureParticipant(edge.to);
     }
-    return lines.join("\n");
+
+    const messages = edges.map((edge) => {
+      const from = ensureParticipant(edge.from);
+      const to = ensureParticipant(edge.to);
+      const label = sanitizeLabel(edge.label || "call").replace(/:/g, " -");
+      return `  ${from}->>${to}: ${label}`;
+    });
+
+    return ["sequenceDiagram", ...participants, ...messages].join("\n");
   }
 
-  const lines = [`flowchart LR`, `  %% ${sanitizeLabel(chapter.title)}`];
+  const lines = [`flowchart LR`];
+  const known = new Set<string>();
+  const idMap = new Map<string, string>();
+
   for (const node of nodes) {
     const id = sanitizeId(node.id);
-    const label = sanitizeLabel(node.label);
-    const shape =
-      node.kind === "db" || node.kind === "storage"
-        ? `${id}[(${label})]`
-        : node.kind === "client"
-          ? `${id}([${label}])`
-          : `${id}[${label}]`;
-    lines.push(`  ${shape}`);
+    idMap.set(node.id, id);
+    if (known.has(id)) continue;
+    known.add(id);
+    lines.push(`  ${nodeShape(id, node.label || node.id, node.kind || "other")}`);
   }
+
   for (const edge of edges) {
-    const from = sanitizeId(edge.from);
-    const to = sanitizeId(edge.to);
-    if (edge.label?.trim()) {
-      lines.push(`  ${from} -->|"${sanitizeLabel(edge.label)}"| ${to}`);
+    const from = idMap.get(edge.from) ?? sanitizeId(edge.from);
+    const to = idMap.get(edge.to) ?? sanitizeId(edge.to);
+
+    // Declare any edge endpoints the model referenced without a node
+    if (!known.has(from)) {
+      known.add(from);
+      lines.push(`  ${nodeShape(from, edge.from, "other")}`);
+    }
+    if (!known.has(to)) {
+      known.add(to);
+      lines.push(`  ${nodeShape(to, edge.to, "other")}`);
+    }
+
+    const edgeLabel = edge.label?.trim()
+      ? sanitizeLabel(edge.label)
+      : "";
+    if (edgeLabel) {
+      lines.push(`  ${from} -->|"${edgeLabel}"| ${to}`);
     } else {
       lines.push(`  ${from} --> ${to}`);
     }
   }
+
   return lines.join("\n");
 }
 
-/** End-to-end system flow from the first system/flow chapter (or all chapters merged lightly). */
+/** End-to-end system flow from the first system/flow chapter. */
 export function blueprintToSystemMermaid(
   blueprint: ArchitectureBlueprint,
 ): string {
@@ -99,7 +189,11 @@ export function blueprintToMermaidBlocks(
   };
 
   if (blueprint.chapters.length) {
-    push("system-flow", "System / primary flow", blueprintToSystemMermaid(blueprint));
+    push(
+      "system-flow",
+      "System / primary flow",
+      blueprintToSystemMermaid(blueprint),
+    );
   }
 
   for (const chapter of blueprint.chapters) {
