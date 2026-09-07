@@ -121,5 +121,13 @@ export function blueprintToExcalidrawElements(
     });
   }
 
-  return convertToExcalidrawElements(skeleton, { regenerateIds: false });
+  return convertToExcalidrawElements(skeleton, { regenerateIds: false }).map(
+    (el) => ({
+      ...el,
+      customData: {
+        ...((el as { customData?: Record<string, unknown> }).customData ?? {}),
+        architectai: true,
+      },
+    }),
+  );
 }
