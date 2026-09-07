@@ -4,11 +4,13 @@ import { blueprintToMarkdown } from "@/lib/architecture/blueprint-to-markdown";
 import { blueprintToMermaidBlocks } from "@/lib/architecture/blueprint-to-mermaid";
 import type { ArchitectureBlueprint } from "@/lib/architecture/schema";
 import { MermaidDiagram } from "./MermaidDiagram";
+import { ReviewStrip } from "./ReviewStrip";
 
 type Props = {
   blueprint: ArchitectureBlueprint | null;
   open: boolean;
   onToggle: () => void;
+  onExport?: () => void;
 };
 
 function renderInline(text: string) {
@@ -25,7 +27,7 @@ function renderInline(text: string) {
   });
 }
 
-export function DocsPanel({ blueprint, open, onToggle }: Props) {
+export function DocsPanel({ blueprint, open, onToggle, onExport }: Props) {
   if (!open) {
     return (
       <div className="flex h-full w-10 flex-col items-center border-l border-[var(--line)] bg-[var(--panel)] py-3">
@@ -55,31 +57,45 @@ export function DocsPanel({ blueprint, open, onToggle }: Props) {
             {blueprint ? blueprint.projectName : "No blueprint yet"}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onToggle}
-          className="text-xs text-[var(--muted)] hover:text-[var(--ink)]"
-        >
-          Collapse
-        </button>
+        <div className="flex items-center gap-2">
+          {blueprint && onExport && (
+            <button
+              type="button"
+              onClick={onExport}
+              className="text-xs font-medium text-[var(--accent)] hover:underline"
+              title="Download Markdown, JSON, and Excalidraw"
+            >
+              Export
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onToggle}
+            className="text-xs text-[var(--muted)] hover:text-[var(--ink)]"
+          >
+            Collapse
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-3 text-sm leading-relaxed">
         {!blueprint && (
           <p className="text-[var(--muted)]">
-            After you generate, Mermaid flow diagrams and step-by-step build
-            notes appear here — enough to understand the architecture and start
-            building without leaving ArchitectAI.
+            After you generate, review assumptions and risks here, then follow
+            chapter steps beside the matching diagrams on the board.
           </p>
         )}
+
+        {blueprint && <ReviewStrip blueprint={blueprint} />}
 
         {mermaidBlocks.length > 0 && (
           <div className="mb-4">
             <h3 className="mb-2 text-sm font-semibold text-[var(--ink)]">
-              Architecture flows
+              Flow reference
             </h3>
             <p className="mb-3 text-xs text-[var(--muted)]">
-              Read these flows top to bottom, then follow the chapter steps.
+              Compact Mermaid views for reading — the editable board is the
+              primary diagram surface.
             </p>
             {mermaidBlocks.map((block) => (
               <MermaidDiagram
