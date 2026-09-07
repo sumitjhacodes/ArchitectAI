@@ -18,18 +18,25 @@ import {
 } from "@/lib/architecture/outline-schema";
 import { normalizeOutline } from "@/lib/architecture/normalize-outline";
 import { normalizeChapterRaw } from "@/lib/architecture/normalize-chapter";
+import {
+  createGenerationRun,
+  updateGenerationRun,
+} from "@/lib/db/boards";
+import { clientKeyFromRequest, rateLimit } from "@/lib/rate-limit";
 import type { AiProvider } from "@/types/board";
 
 export const maxDuration = 180;
 
 const MAX_OUTPUT_TOKENS = 6144;
 
-/** Short system for structured JSON — long architect prompt confuses Groq JSON mode. */
-const STRUCTURED_JSON_SYSTEM = `You are ArchitectAI. Reply with valid JSON only.
-No markdown fences. No prose before/after JSON.
+/** Short system for structured JSON — still demands engineer-grade content. */
+const STRUCTURED_JSON_SYSTEM = `You are ArchitectAI producing structured architecture JSON.
+Reply with valid JSON only. No markdown fences. No prose before/after JSON.
 diagram.type must be one of: system, flow, sequence, erd, wireframe.
 step.n must be a number. commands must be a string array (use [] if none).
-Keep every string short and concrete.`;
+Content quality: concrete file paths, routes, table names, env vars, CLI commands.
+No TBD or vague steps. Prefer the simplest stack that meets constraints.
+Keep strings tight but specific — never empty placeholders.`;
 
 type IncomingMessage = {
   role: "user" | "assistant" | "system";
@@ -64,7 +71,9 @@ type StreamEvent =
       type: "complete";
       narration: string;
       blueprint: ArchitectureBlueprint;
+      failedChapters?: string[];
     }
+  | { type: "chapter_failed"; title: string; error: string }
   | { type: "error"; error: string };
 
 function polishChapter(
@@ -201,24 +210,59 @@ Return ONE JSON object shaped like:
         maxOutputTokens: MAX_OUTPUT_TOKENS,
       });
       return chapterFromUnknown(parseModelJson(text), index, fallbackTitle);
-    } catch {
-      // Last resort: never block the whole blueprint on one chapter
-      return chapterFromUnknown({}, index, fallbackTitle);
+    } catch (err) {
+      throw new Error(
+        err instanceof Error
+          ? `Chapter "${fallbackTitle}" failed: ${err.message}`
+          : `Chapter "${fallbackTitle}" failed`,
+      );
     }
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const ip = clientKeyFromRequest(request);
+    const minute = rateLimit(`architect:min:${ip}`, 8, 60_000);
+    if (!minute.ok) {
+      return Response.json(
+        { error: "Rate limit exceeded. Wait a minute and try again." },
+        {
+          status: 429,
+          headers: {
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": String(minute.resetAt),
+          },
+        },
+      );
+    }
+    const daily = rateLimit(`architect:day:${ip}`, 40, 24 * 60 * 60 * 1000);
+    if (!daily.ok) {
+      return Response.json(
+        { error: "Daily generation cap reached for this network." },
+        { status: 429 },
+      );
+    }
+
     const body = (await request.json()) as {
       provider?: AiProvider;
       messages?: IncomingMessage[];
       blueprint?: unknown;
+      mode?: "full" | "patch";
+      refineAction?: "challenge-stack" | "tighten-mvp" | "patch";
+      constraints?: {
+        scale?: string;
+        timeline?: string;
+        preferredTech?: string[];
+        avoidTech?: string[];
+      };
+      retryChapterTitle?: string;
     };
 
     const provider: AiProvider =
       body.provider === "groq" ? "groq" : "gemini";
     const messages = body.messages ?? [];
+    const mode = body.mode === "patch" ? "patch" : "full";
 
     if (!messages.length) {
       return Response.json(
@@ -233,14 +277,23 @@ export async function POST(request: Request) {
       [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
 
     let existingNote = "";
+    let existingBlueprint: ArchitectureBlueprint | null = null;
     if (body.blueprint) {
       const parsed = architectureBlueprintSchema.safeParse(body.blueprint);
       if (parsed.success) {
-        existingNote = `\n\nRefine existing project "${parsed.data.projectName}". Prior chapters: ${parsed.data.chapters.map((c) => c.title).join("; ")}.`;
+        existingBlueprint = parsed.data;
+        existingNote = `\n\nRefine existing project "${parsed.data.projectName}". Prior chapters: ${parsed.data.chapters.map((c) => c.title).join("; ")}. Mode: ${mode}.`;
       }
     }
 
-    const userPrompt = buildArchitectUserPrompt(lastUser);
+    const userPrompt = buildArchitectUserPrompt(lastUser, {
+      scale: body.constraints?.scale,
+      timeline: body.constraints?.timeline,
+      preferredTech: body.constraints?.preferredTech,
+      avoidTech: body.constraints?.avoidTech,
+      mode,
+      refineAction: body.refineAction,
+    });
     const history = messages
       .slice(0, -1)
       .slice(-6)
@@ -248,6 +301,13 @@ export async function POST(request: Request) {
       .join("\n\n");
 
     const encoder = new TextEncoder();
+    const runId = `run_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    void createGenerationRun({
+      id: runId,
+      userId: ip,
+      status: "started",
+    });
+
     const stream = new ReadableStream({
       async start(controller) {
         const send = (event: StreamEvent) => {
@@ -257,7 +317,57 @@ export async function POST(request: Request) {
         };
 
         try {
-          // 1) ChatGPT-style narration stream
+          // Single-chapter retry path
+          if (body.retryChapterTitle && existingBlueprint) {
+            send({
+              type: "status",
+              message: `Retrying chapter: ${body.retryChapterTitle}…`,
+            });
+            const idx = existingBlueprint.chapters.findIndex(
+              (c) => c.title === body.retryChapterTitle,
+            );
+            const chapter = await generateChapter(
+              structuredModel,
+              `${userPrompt}
+
+Project: ${existingBlueprint.projectName}
+Summary: ${existingBlueprint.summary}
+Stack: ${existingBlueprint.techStack.map((t) => t.name).join(", ")}
+Retry chapter title: "${body.retryChapterTitle}"
+${existingNote}
+
+Produce THIS chapter only with executable steps and a clean layered diagram.`,
+              Math.max(0, idx),
+              body.retryChapterTitle,
+            );
+            const chapters = [...existingBlueprint.chapters];
+            if (idx >= 0) chapters[idx] = chapter;
+            else chapters.push(chapter);
+            const blueprint: ArchitectureBlueprint = {
+              ...existingBlueprint,
+              chapters,
+            };
+            send({
+              type: "chapter",
+              index: Math.max(0, idx),
+              total: chapters.length,
+              chapter,
+              projectName: blueprint.projectName,
+              summary: blueprint.summary,
+              techStack: blueprint.techStack,
+              assumptions: blueprint.assumptions,
+              tradeOffs: blueprint.tradeOffs,
+              risks: blueprint.risks,
+            });
+            send({
+              type: "complete",
+              narration: `Updated chapter “${body.retryChapterTitle}”.`,
+              blueprint,
+              failedChapters: [],
+            });
+            return;
+          }
+
           const narrationStream = streamText({
             model,
             system:
@@ -275,15 +385,14 @@ export async function POST(request: Request) {
 
           send({ type: "status", message: "Structuring the build plan…" });
 
-          // 2) Outline (stack + chapter titles)
           const outlineBudget =
             provider === "groq"
-              ? "Produce 5 chapterTitles. Keep summary/assumptions/tradeOffs/risks short (1 sentence each)."
-              : "Produce the outline with 5–7 chapterTitles covering system, frontend, backend, database, core flow, setup, deploy.";
+              ? "Produce 5–6 chapterTitles covering system, frontend, backend, database, core flow, setup/deploy. Keep each assumption/trade-off/risk to 1–2 precise sentences."
+              : "Produce the outline with 5–7 chapterTitles covering system, frontend, backend, database, core flow, setup, deploy. Be specific in assumptions, trade-offs, and risks.";
 
           const outline = await generateOutline(
             structuredModel,
-            `${userPrompt}\n\nNarration:\n${narration.slice(0, provider === "groq" ? 900 : 1500)}\n\n${outlineBudget}${existingNote}`,
+            `${userPrompt}\n\nNarration:\n${narration.slice(0, provider === "groq" ? 1200 : 1800)}\n\n${outlineBudget}${existingNote}`,
           );
 
           const titles = (outline.chapterTitles ?? []).slice(0, 7);
@@ -308,9 +417,9 @@ export async function POST(request: Request) {
           });
 
           const chapters: BlueprintChapter[] = [];
+          const failedChapters: string[] = [];
           const total = titles.length;
 
-          // 3) Each chapter → docs + whiteboard update live
           for (let i = 0; i < total; i++) {
             send({
               type: "status",
@@ -319,12 +428,13 @@ export async function POST(request: Request) {
 
             const chapterBudget =
               provider === "groq"
-                ? "Produce THIS chapter only: 4–6 short steps (detail ≤ 2 sentences each; ≤ 2 commands), one layered diagram (3–5 nodes, short labels)."
-                : "Produce THIS chapter only: 5–8 executable steps, one clean layered diagram (3–7 nodes).";
+                ? "Produce THIS chapter only: 5–7 executable steps with real paths/commands, one layered diagram (4–6 nodes, short labels). No vague steps."
+                : "Produce THIS chapter only: 5–8 executable steps with file paths, routes, schema names, and commands; one clean layered diagram (3–7 nodes).";
 
-            const rawChapter = await generateChapter(
-              structuredModel,
-              `${userPrompt}
+            try {
+              const chapter = await generateChapter(
+                structuredModel,
+                `${userPrompt}
 
 Project: ${outline.projectName}
 Summary: ${outline.summary}
@@ -334,25 +444,40 @@ Previous chapters: ${chapters.map((c) => c.title).join(" | ") || "(none)"}
 ${existingNote}
 
 ${chapterBudget}`,
-              i,
-              titles[i] || `Chapter ${i + 1}`,
+                i,
+                titles[i] || `Chapter ${i + 1}`,
+              );
+              chapters.push(chapter);
+              send({
+                type: "chapter",
+                index: i,
+                total,
+                chapter,
+                projectName: outline.projectName,
+                summary: outline.summary,
+                techStack: outline.techStack,
+                assumptions: outline.assumptions,
+                tradeOffs: outline.tradeOffs,
+                risks: outline.risks,
+              });
+            } catch (chapterError) {
+              const msg =
+                chapterError instanceof Error
+                  ? chapterError.message
+                  : "Chapter failed";
+              failedChapters.push(titles[i]);
+              send({
+                type: "chapter_failed",
+                title: titles[i],
+                error: msg,
+              });
+            }
+          }
+
+          if (!chapters.length) {
+            throw new Error(
+              "No chapters could be generated. Try again or switch provider in Settings.",
             );
-
-            const chapter = rawChapter;
-            chapters.push(chapter);
-
-            send({
-              type: "chapter",
-              index: i,
-              total,
-              chapter,
-              projectName: outline.projectName,
-              summary: outline.summary,
-              techStack: outline.techStack,
-              assumptions: outline.assumptions,
-              tradeOffs: outline.tradeOffs,
-              risks: outline.risks,
-            });
           }
 
           const blueprint: ArchitectureBlueprint = {
@@ -373,12 +498,18 @@ ${chapterBudget}`,
               narration.trim() ||
               `Architecture plan ready for ${blueprint.projectName}.`,
             blueprint,
+            failedChapters,
           });
+          void updateGenerationRun(runId, { status: "completed" });
         } catch (error) {
           const message =
             error instanceof Error
               ? error.message
               : "Failed to generate architecture";
+          void updateGenerationRun(runId, {
+            status: "failed",
+            error: message,
+          });
           send({ type: "error", error: message });
         } finally {
           controller.close();
