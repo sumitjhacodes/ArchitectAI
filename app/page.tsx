@@ -39,11 +39,11 @@ export default function HomePage() {
               </p>
             </div>
             <h1 className="font-[family-name:var(--font-display)] text-4xl leading-[1.08] tracking-tight sm:text-5xl">
-              Turn a project idea into an editable architecture board.
+              Turn constraints into a reviewable architecture board.
             </h1>
             <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-              Describe what you want to build. ArchitectAI draws the system,
-              flows, and build steps on a whiteboard you can keep editing.
+              Before you write code, get system diagrams, flows, and chaptered
+              build steps you can critique, refine, and export.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
@@ -153,12 +153,12 @@ export default function HomePage() {
               body="The canvas shows structure. The docs panel lists stack choices, chapter goals, and shell commands. You are not copy-pasting between a chat and a drawing tool."
             />
             <HelpBlock
-              title="Refine without redrawing everything"
-              body="Follow up in chat — add OAuth, expand the database chapter, swap the queue — and ArchitectAI updates the blueprint. You still own freehand edits on the board."
+              title="Refine the plan, then export it"
+              body="Follow up to patch the architecture without wiping your board. Download Markdown, blueprint JSON, and Excalidraw when you are ready to share."
             />
             <HelpBlock
               title="Stay local while you iterate"
-              body="Boards autosave in your browser. No account required for the MVP. Export or redraw freely on the canvas anytime."
+              body="Named boards autosave in your browser. No account required for the local workspace. Bring constraints (scale, stack, timeline) before you generate."
             />
           </div>
         </div>
@@ -174,18 +174,18 @@ export default function HomePage() {
             {[
               {
                 n: "01",
-                title: "Open the whiteboard",
-                body: "Start a board session. Optionally switch Gemini / Groq if you have both API keys configured.",
+                title: "Open a board",
+                body: "Start a named board session. Create multiple projects and switch between them anytime.",
               },
               {
                 n: "02",
                 title: "Describe the product and constraints",
-                body: "Example: “Build an AI job application agent with Next.js, Clerk, and Postgres. Include setup, resume upload flow, dashboard, and deployment.”",
+                body: "Example: “Auth + Postgres web app for an MVP in 6–10 weeks. Prefer Next.js. Avoid Kafka.”",
               },
               {
                 n: "03",
-                title: "Watch chat, docs, and diagrams update together",
-                body: "Chat streams the plan. Docs fills chapter by chapter. The canvas draws each diagram as it is ready — then you edit or ask for refinements.",
+                title: "Review, refine, export",
+                body: "Chat streams the plan. Docs and the canvas update together. Check risks, refine in place, then download the plan package.",
               },
             ].map((step) => (
               <li
@@ -262,7 +262,7 @@ export default function HomePage() {
       </section>
 
       <footer className="border-t border-[var(--line)] px-6 py-6 text-center text-xs text-[var(--muted)]">
-        ArchitectAI · local boards · design through deploy
+        ArchitectAI · first architecture before you build
       </footer>
     </main>
   );
