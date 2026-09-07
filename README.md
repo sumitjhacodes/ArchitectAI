@@ -1,6 +1,6 @@
 # ArchitectAI
 
-Agentic whiteboard: describe a project, get architecture diagrams on an Excalidraw canvas plus chaptered build docs (design → deploy).
+Constraint-aware architecture boards: describe a product, get diagrams on Excalidraw plus chaptered build docs you can refine and export.
 
 ## Setup
 
@@ -9,7 +9,7 @@ npm install
 cp .env.example .env
 ```
 
-Add at least one API key in `.env` (Gemini / Groq):
+Add at least one API key in `.env`:
 
 - `GOOGLE_GENERATIVE_AI_API_KEY`
 - `GROQ_API_KEY`
@@ -24,11 +24,21 @@ Open [http://localhost:3000](http://localhost:3000) → **Open whiteboard**.
 
 - Next.js 16 · React 19 · Tailwind 4
 - `@excalidraw/excalidraw`
-- Vercel AI SDK · Zod blueprints · `localStorage` persistence
+- Vercel AI SDK · Zod blueprints · multi-board `localStorage` (+ optional durable `.data` store)
 
 ## Usage
 
-1. Open the board (optionally switch engine A/B).
-2. Ask e.g. “Build an AI job application agent with Next.js and Clerk — design through deploy”.
-3. Chat streams the plan; Docs and the canvas update chapter by chapter.
-4. Edit the board manually; refresh restores from local storage.
+1. Open a named board (create / switch / duplicate as needed).
+2. Set constraints (scale, timeline, must-use / must-avoid).
+3. Describe the product. Chat streams; Docs + canvas update chapter by chapter.
+4. Use **Refine** to patch without wiping user drawings, or **Full redesign**.
+5. **Download plan** for Markdown + blueprint JSON + `.excalidraw`.
+
+## Scripts
+
+```bash
+npm run test
+npm run build
+```
+
+Deploy on Vercel: set env vars and note `maxDuration` 180s for `/api/architect` (see `vercel.json`).
