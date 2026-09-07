@@ -21,6 +21,43 @@ export type BoardSceneSnapshot = {
   };
 };
 
+export type ProjectConstraints = {
+  scale?: string;
+  timeline?: string;
+  preferredTech?: string[];
+  avoidTech?: string[];
+};
+
+export type BoardMeta = {
+  id: string;
+  name: string;
+  updatedAt: number;
+  createdAt: number;
+};
+
+export type BoardRecord = {
+  version: 2;
+  id: string;
+  name: string;
+  provider: AiProvider;
+  messages: ChatMessage[];
+  blueprint: ArchitectureBlueprint | null;
+  scene: BoardSceneSnapshot | null;
+  docsOpen: boolean;
+  chatOpen: boolean;
+  constraints: ProjectConstraints;
+  failedChapters?: string[];
+  updatedAt: number;
+  createdAt: number;
+};
+
+export type WorkspaceIndex = {
+  version: 2;
+  activeBoardId: string | null;
+  boards: BoardMeta[];
+};
+
+/** @deprecated v1 single-board shape — migrated on load */
 export type StoredBoardState = {
   version: 1;
   provider: AiProvider;
@@ -28,7 +65,6 @@ export type StoredBoardState = {
   blueprint: ArchitectureBlueprint | null;
   scene: BoardSceneSnapshot | null;
   docsOpen: boolean;
-  /** Optional for older localStorage payloads */
   chatOpen?: boolean;
   updatedAt: number;
 };
