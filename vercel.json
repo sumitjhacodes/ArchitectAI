@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "app/api/architect/route.ts": {
+      "maxDuration": 180
+    }
+  }
+}
