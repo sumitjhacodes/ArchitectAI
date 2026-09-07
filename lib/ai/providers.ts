@@ -23,18 +23,10 @@ export function getArchitectModel(provider: AiProvider) {
 }
 
 /**
- * Structured JSON (outline/chapters). On Groq, use a smaller OSS model so
- * JSON finishes reliably after a heavy narration call on 120B.
+ * Structured JSON (outline/chapters). Same high-quality model as narration;
+ * salvage/normalize layers handle truncated JSON.
  */
 export function getStructuredModel(provider: AiProvider) {
-  if (provider === "groq") {
-    if (!process.env.GROQ_API_KEY) {
-      throw new Error(
-        "Groq is not configured. Add GROQ_API_KEY to your .env file.",
-      );
-    }
-    return groq("openai/gpt-oss-20b");
-  }
   return getArchitectModel(provider);
 }
 
